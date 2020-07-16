@@ -17,7 +17,9 @@
 	{{ else if .Network }}
 		# {{ .Container.Name }}
 		{{ if .Network.IP }}
-			server {{ .Network.IP }} down;
+			# server {{ .Network.IP }} down;
+			{{/* Docker Swarm Mode? https://github.com/nginx-proxy/nginx-proxy/issues/927#issuecomment-391334432 */}}
+			server {{ .Network.IP }}:{{ coalesce .Container.Env.VIRTUAL_PORT "80" }};
 		{{ else }}
 			server 127.0.0.1 down;
 		{{ end }}
@@ -251,7 +253,7 @@ server {
 	listen [::]:{{ $external_http_port }} {{ $default_server }};
 	{{ end }}
 	{{ $access_log }}
-	
+
 	# Do not HTTPS redirect Let'sEncrypt ACME challenge
 	location /.well-known/acme-challenge/ {
 		auth_basic off;
@@ -260,7 +262,7 @@ server {
 		try_files $uri =404;
 		break;
 	}
-	
+
 	location / {
 		return 301 https://$host$request_uri;
 	}
