@@ -44,6 +44,9 @@ RUN apt-get update \
 RUN sed -i '1idaemon off;' /etc/nginx/nginx.conf \
     && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
 
+# Create storage for auto created htpasswd files
+VOLUME /etc/nginx/htpasswd
+
 COPY . /app/
 COPY --from=builder /build/docker-gen/docker-gen /usr/local/bin/
 COPY --from=builder /build/forego/forego /usr/local/bin/
