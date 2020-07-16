@@ -1,32 +1,52 @@
-FROM nginx:1.17.8
-LABEL maintainer="Jason Wilder mail@jasonwilder.com"
+########################################################################################################################
+#
+FROM golang:buster as builder
+LABEL stage=nginx-proxy-intermediate
 
-# Install wget and install/updates certificates
+RUN apt install -y -q --no-install-recommends \
+    git \
+    make \
+    gcc \
+    libc-dev \
+    curl
+
+########################################################################################################################
+
+RUN \
+    DOCKER_GEN_TAG=${DOCKER_GEN_TAG:-$(curl -fsSLI -o /dev/null -w %{url_effective} https://github.com/bugficks/docker-gen/releases/latest | awk -F / '{print $NF}')} \
+    && git clone https://github.com/bugficks/docker-gen --single-branch --branch ${DOCKER_GEN_TAG} --depth 1 /build/docker-gen
+
+WORKDIR /build/docker-gen
+RUN make check-gofmt all
+
+########################################################################################################################
+
+RUN \
+    FOREGO_TAG=${FOREGO_TAG:-$(curl -fsSLI -o /dev/null -w %{url_effective} https://github.com/bugficks/forego/releases/latest | awk -F / '{print $NF}')} \
+    && git clone https://github.com/bugficks/forego --single-branch --branch ${FOREGO_TAG} --depth 1 /build/forego
+
+WORKDIR /build/forego
+RUN make lint build
+
+########################################################################################################################
+#
+FROM nginx:mainline
+LABEL maintainer="github.com/bugficks/nginx-proxy"
+
+# Install runtime dependencies
 RUN apt-get update \
- && apt-get install -y -q --no-install-recommends \
-    ca-certificates \
-    wget \
- && apt-get clean \
- && rm -r /var/lib/apt/lists/*
+   && apt-get install -y -q --no-install-recommends \
+      ca-certificates curl bash openssl \
+   && apt-get clean \
+   && rm -r /var/lib/apt/lists/*
 
-
-# Configure Nginx and apply fix for very long server names
-RUN echo "daemon off;" >> /etc/nginx/nginx.conf \
- && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
-
-# Install Forego
-ADD https://github.com/jwilder/forego/releases/download/v0.16.1/forego /usr/local/bin/forego
-RUN chmod u+x /usr/local/bin/forego
-
-ENV DOCKER_GEN_VERSION 0.7.4
-
-RUN wget https://github.com/jwilder/docker-gen/releases/download/$DOCKER_GEN_VERSION/docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz \
- && tar -C /usr/local/bin -xvzf docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz \
- && rm /docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz
-
-COPY network_internal.conf /etc/nginx/
+# Configure Nginx
+RUN sed -i '1idaemon off;' /etc/nginx/nginx.conf \
+    && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
 
 COPY . /app/
+COPY --from=builder /build/docker-gen/docker-gen /usr/local/bin/
+COPY --from=builder /build/forego/forego /usr/local/bin/
 WORKDIR /app/
 
 ENV DOCKER_HOST unix:///tmp/docker.sock
