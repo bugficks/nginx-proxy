@@ -238,9 +238,11 @@ include /etc/nginx/vhost.d/default_upstream;
 {{/* Get the HSTS defined by containers w/ the same vhost, falling back to "max-age=31536000" */}}
 {{ $hsts := or (first (groupByKeys $containers "Env.HSTS")) (or $.Env.HSTS "max-age=31536000") }}
 
-{{/* Get the VIRTUAL_ROOT By containers w/ use fastcgi root */}}
+{{/* Get the VIRTUAL_ROOT by containers w/ use fastcgi root */}}
 {{ $vhost_root := or (first (groupByKeys $containers "Env.VIRTUAL_ROOT")) "/var/www/public" }}
 
+{{/* Get the HTTP_BASIC_AUTH by containers */}}
+{{ $vhost_logins := or (first (groupByKeys $containers "Env.HTTP_BASIC_AUTH")) "" }}
 
 {{/* Get the first cert name defined by containers w/ the same vhost */}}
 {{ $certName := (first (groupByKeys $containers "Env.CERT_NAME")) }}
@@ -352,10 +354,19 @@ server {
 		{{ else }}
 		proxy_pass {{ trim $proto }}://{{ trim $upstream_name }};
 		{{ end }}
-
-		{{ if (exists (printf "/etc/nginx/htpasswd/%s" $host)) }}
+		{{ $htpasswd := printf "/etc/nginx/htpasswd/%s" $host }}
+		{{ if (not (exists $htpasswd)) }}
+			{{ if ne $vhost_logins "" }}
+				{{ $logins := split (trim $vhost_logins) "\n" }}
+				{{ range $login := $logins }}
+					{{ $login := (split $login ":") }}
+					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) }}
+				{{ end }}
+			{{ end }}
+		{{ end }}
+		{{ if (exists $htpasswd) }}
 		auth_basic	"Restricted {{ $host }}";
-		auth_basic_user_file	{{ (printf "/etc/nginx/htpasswd/%s" $host) }};
+		auth_basic_user_file	{{ $htpasswd }};
 		{{ end }}
 		{{ if (exists (printf "/etc/nginx/vhost.d/%s_location" $host)) }}
 		include {{ printf "/etc/nginx/vhost.d/%s_location" $host}};
@@ -401,9 +412,19 @@ server {
 		{{ else }}
 		proxy_pass {{ trim $proto }}://{{ trim $upstream_name }};
 		{{ end }}
-		{{ if (exists (printf "/etc/nginx/htpasswd/%s" $host)) }}
+		{{ $htpasswd := printf "/etc/nginx/htpasswd/%s" $host }}
+		{{ if (not (exists $htpasswd)) }}
+			{{ if ne $vhost_logins "" }}
+				{{ $logins := split (trim $vhost_logins) "\n" }}
+				{{ range $login := $logins }}
+					{{ $login := (split $login ":") }}
+					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) }}
+				{{ end }}
+			{{ end }}
+		{{ end }}
+		{{ if (exists $htpasswd) }}
 		auth_basic	"Restricted {{ $host }}";
-		auth_basic_user_file	{{ (printf "/etc/nginx/htpasswd/%s" $host) }};
+		auth_basic_user_file	{{ $htpasswd }};
 		{{ end }}
 		{{ if (exists (printf "/etc/nginx/vhost.d/%s_location" $host)) }}
 		include {{ printf "/etc/nginx/vhost.d/%s_location" $host}};
