@@ -42,6 +42,7 @@ RUN apt-get update \
 
 # Configure Nginx
 RUN sed -i '1idaemon off;' /etc/nginx/nginx.conf \
+    && sed -i '2i/etc/nginx/modules.conf;' /etc/nginx/nginx.conf \
     && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
 
 COPY network_internal.conf /etc/nginx/

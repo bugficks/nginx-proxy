@@ -115,6 +115,31 @@ When internal-only access is enabled, external clients with be denied with an `H
 
 > If there is a load-balancer / reverse proxy in front of `nginx-proxy` that hides the client IP (example: AWS Application/Elastic Load Balancer), you will need to use the nginx `realip` module (already installed) to extract the client's IP from the HTTP request headers.  Please see the [nginx realip module configuration](http://nginx.org/en/docs/http/ngx_http_realip_module.html) for more details.  This configuration can be added to a new config file and mounted in `/etc/nginx/conf.d/`.
 
+### Module support
+
+Loading nginx modules can be done by specifying `NGINX_MOD_ENABLE` environment variable with module names to be enabled.
+
+To get a list of available modules:
+```
+$ docker run --rm -i --entrypoint /app/bin/mod_enable.sh bugficks/nginx-proxy --list
+
+Available modules:
+- ngx_http_geoip_module.so
+- ngx_http_js_module.so
+- ngx_http_xslt_filter_module.so
+- ngx_http_image_filter_module.so
+- ngx_stream_geoip_module.so
+- ngx_stream_js_module.so
+```
+Load just some module(s):
+```
+NGINX_MOD_ENABLE="ngx_http_geoip_module ngx_http_xslt_filter"
+```
+Load all modules matching regex:
+```
+NGINX_MOD_ENABLE=.*http.*
+```
+
 ### SSL Backends
 
 If you would like the reverse proxy to connect to your backend using HTTPS instead of HTTP, set `VIRTUAL_PROTO=https` on the backend container.
