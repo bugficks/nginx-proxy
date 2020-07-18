@@ -115,6 +115,14 @@ When internal-only access is enabled, external clients with be denied with an `H
 
 > If there is a load-balancer / reverse proxy in front of `nginx-proxy` that hides the client IP (example: AWS Application/Elastic Load Balancer), you will need to use the nginx `realip` module (already installed) to extract the client's IP from the HTTP request headers.  Please see the [nginx realip module configuration](http://nginx.org/en/docs/http/ngx_http_realip_module.html) for more details.  This configuration can be added to a new config file and mounted in `/etc/nginx/conf.d/`.
 
+### Cloudflare reverse proxy
+Add `CF_REAL_IP_ENABLE=1` environment variable will create `/etc/nginx/conf.d/10-cloudflare-real-ip-auto.conf` with current IPs. See also [Restoring visitor IPs by web server type](https://support.cloudflare.com/hc/en-us/articles/200170786)
+```
+    CF_REAL_IP_ENABLE: 1
+    # CF_REAL_IP_RECURSIVE: off
+    # CF_REAL_IP_HEADER: X-Forwarded-For
+```
+
 ### Module support
 
 Loading nginx modules can be done by specifying `NGINX_MOD_ENABLE` environment variable with module names to be enabled.

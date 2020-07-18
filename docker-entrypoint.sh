@@ -32,5 +32,7 @@ if [ "$socketMissing" = 1 -a "$1" = forego -a "$2" = start -a "$3" = '-r' ]; the
 fi
 
 [ "x${NGINX_MOD_ENABLE}" != "x" ] && /app/bin/mod_enable.sh
+[ "x${CF_REAL_IP_ENABLE}" != "x" ] && /app/bin/cloudflare-real-ip.sh
+
 
 exec "$@"
