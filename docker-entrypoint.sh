@@ -15,9 +15,10 @@ if [[ $DOCKER_HOST = unix://* ]]; then
 fi
 
 # Generate dhparam file if required
-# Note: if $DHPARAM_BITS is not defined, generate-dhparam.sh will use 2048 as a default
+# Note: if $DHPARAM_BITS is not defined, generate-dhparam.sh will use 4096 as a default
 # Note2: if $DHPARAM_GENERATION is set to false in environment variable, dh param generator will skip completely
-/app/generate-dhparam.sh $DHPARAM_BITS $DHPARAM_GENERATION
+/app/generate-dhparam.sh ${DHPARAM_BITS:-4096} ${GENERATE_DHPARAM:-true}
+
 
 # Compute the DNS resolvers for use in the templates - if the IP contains ":", it's IPv6 and must be enclosed in []
 export RESOLVERS=$(awk '$1 == "nameserver" {print ($2 ~ ":")? "["$2"]": $2}' ORS=' ' /etc/resolv.conf | sed 's/ *$//g')
@@ -31,8 +32,8 @@ if [ "$socketMissing" = 1 -a "$1" = forego -a "$2" = start -a "$3" = '-r' ]; the
 	exit 1
 fi
 
-[ "x${NGINX_MOD_ENABLE}" != "x" ] && /app/bin/mod_enable.sh
-[ "x${CF_REAL_IP_ENABLE}" != "x" ] && /app/bin/cloudflare-real-ip.sh
+[ "x${NGINX_MOD_ENABLE}" != "x" ] && /app/bin/mod_enable.sh || cat /dev/null > /etc/nginx/modules.conf
+[ "x${CF_REAL_IP_ENABLE}" != "x" ] && /app/bin/cloudflare-real-ip.sh || rm -f /etc/nginx/conf.d/*real-ip-auto.conf
 
 
 exec "$@"
