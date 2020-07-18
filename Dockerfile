@@ -1,6 +1,6 @@
 ########################################################################################################################
 #
-FROM golang:buster as builder
+FROM golang:buster as go-builder
 LABEL stage=nginx-proxy-intermediate
 
 RUN apt install -y -q --no-install-recommends \
@@ -8,7 +8,8 @@ RUN apt install -y -q --no-install-recommends \
     make \
     gcc \
     libc-dev \
-    curl
+    curl \
+    && git config --global advice.detachedHead false
 
 ########################################################################################################################
 
@@ -37,6 +38,7 @@ LABEL maintainer="github.com/bugficks/nginx-proxy"
 RUN apt-get update \
    && apt-get install -y -q --no-install-recommends \
       ca-certificates curl bash openssl \
+   && update-ca-certificates \
    && apt-get clean \
    && rm -r /var/lib/apt/lists/*
 
@@ -47,17 +49,14 @@ RUN sed -i '1idaemon off;' /etc/nginx/nginx.conf \
 
 COPY network_internal.conf /etc/nginx/
 
-# Create storage for auto created htpasswd files
-VOLUME /etc/nginx/htpasswd
-
 COPY . /app/
-COPY --from=builder /build/docker-gen/docker-gen /usr/local/bin/
-COPY --from=builder /build/forego/forego /usr/local/bin/
+COPY --from=go-builder /build/docker-gen/docker-gen /usr/local/bin/
+COPY --from=go-builder /build/forego/forego /usr/local/bin/
 WORKDIR /app/
 
 ENV DOCKER_HOST unix:///tmp/docker.sock
 
-VOLUME ["/etc/nginx/certs", "/etc/nginx/dhparam"]
+VOLUME ["/etc/nginx/certs", "/etc/nginx/dhparam", "/etc/nginx/htpasswd"]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["forego", "start", "-r"]
