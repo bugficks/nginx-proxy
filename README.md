@@ -147,6 +147,39 @@ Load all modules matching regex:
 ```
 NGINX_MOD_ENABLE=.*http.*
 ```
+### GeoIP support
+
+If enabled and depending on configuration this will forward GeoIP information via `X-GeoIP-Country-Code`, `X-GeoIP-Country`,
+`X-GeoIP-City`, `X-GeoIP-Region` http headers to upstreams. It will also be added to access logs.
+
+#### Cloudflare IP Geolocation
+First see [Configuring Cloudflare IP Geolocation](https://support.cloudflare.com/hc/en-us/articles/200168236-Configuring-Cloudflare-IP-Geolocation)
+and then set `CF_COUNTRY_ENABLE=1`.
+If you want to use MaxMind GeoIP2 as well you most like want to set `CF_GEOIP2_PROXY_ENABLE=1` as well.
+
+#### MaxMind GeoIP2
+Enabling MaxMind GeoIP2 support requires a few steps:
+- you need to load [geoip2 nginx module](https://github.com/leev/ngx_http_geoip2_module) by setting [`GEOIP2_ENABLE`](#module-support) e.g.:
+  ```
+  NGINX_MOD_ENABLE: ngx_http_geoip2_module
+  ```
+- enable geoip by selecting database to use, e.g.:
+  ```
+  GEOIP2_ENABLE: GeoLite2-City
+  ```
+- configure [MaxMind geoipupdate](https://github.com/maxmind/geoipupdate)
+  ```
+    GEOIPUPDATE_ACCOUNT_ID: 11111
+    GEOIPUPDATE_LICENSE_KEY: 22222
+    # GEOIPUPDATE_EDITION_IDS: GeoLite2-City GeoLite2-Country
+  ```
+  alternatively mount existing database to `/usr/local/share/GeoIP`
+- if you prefer [Cloudflare country code](#cloudflare-ip-geolocation)
+  ```
+  CF_COUNTRY_ENABLE: 1
+  CF_GEOIP2_PROXY_ENABLE: 1
+  # GEOIP2_PROXY_RECURSIVE: off
+  ```
 
 ### SSL Backends
 

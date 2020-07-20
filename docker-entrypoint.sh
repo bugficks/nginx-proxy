@@ -36,4 +36,25 @@ fi
 [ "x${CF_REAL_IP_ENABLE}" != "x" ] && /app/bin/cloudflare-real-ip.sh || rm -f /etc/nginx/conf.d/*real-ip-auto.conf
 
 
+if [ "x${GEOIP2_ENABLE}" != "x" ]; then
+	GEOIPUPDATE_CONF=${GEOIPUPDATE_CONF:-/usr/local/etc/GeoIP.conf}
+	GEOIPUPDATE_DATADIR=${GEOIPUPDATE_DATADIR:-/usr/local/share/GeoIP}
+	GEOIPUPDATE_EDITION_IDS=${GEOIPUPDATE_EDITION_IDS:-GeoLite2-City GeoLite2-Country}
+
+	if [ "x${GEOIPUPDATE_ACCOUNT_ID}" != "x" ] && [ "x${GEOIPUPDATE_LICENSE_KEY}" != "x" ]; then
+		mkdir -p ${GEOIPUPDATE_DATADIR} &> /dev/null
+		(
+			echo "AccountID ${GEOIPUPDATE_ACCOUNT_ID}"
+			echo "LicenseKey ${GEOIPUPDATE_LICENSE_KEY}"
+			echo "EditionIDs ${GEOIPUPDATE_EDITION_IDS}"
+			echo "DatabaseDirectory ${GEOIPUPDATE_DATADIR}"
+		) > ${GEOIPUPDATE_CONF}
+
+		[ "x${GEOIPUPDATE_NO_UPDATE}" == "x" ] && geoipupdate -f ${GEOIPUPDATE_CONF} -v
+	else
+		echo "geoipupdate disabled. Missing environment variables GEOIPUPDATE_ACCOUNT_ID and/or GEOIPUPDATE_LICENSE_KEY!"
+	fi
+fi
+[ "x${CF_GEOIP2_PROXY_ENABLE}" != "x" ] && /app/bin/cloudflare-geoip2.sh || rm -f /etc/nginx/conf.d/*geoip2-auto.conf
+
 exec "$@"
