@@ -314,6 +314,8 @@ include /etc/nginx/vhost.d/default_upstream;
 
 {{/* Get the HTTP_BASIC_AUTH by containers */}}
 {{ $vhost_logins := or (first (groupByKeys $containers "Env.HTTP_BASIC_AUTH")) "" }}
+{{/* See https://github.com/foomo/htpasswd for possible values. No bcrypt on debian! */}}
+{{ $auth_algo := or ($.Env.HTTP_BASIC_AUTH_ALGO) "sha" }}
 
 {{/* Get the first cert name defined by containers w/ the same vhost */}}
 {{ $certName := (first (groupByKeys $containers "Env.CERT_NAME")) }}
@@ -431,7 +433,7 @@ server {
 				{{ $logins := split (trim $vhost_logins) "\n" }}
 				{{ range $login := $logins }}
 					{{ $login := (split $login ":") }}
-					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) }}
+					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) $auth_algo }}
 				{{ end }}
 			{{ end }}
 		{{ end }}
@@ -489,7 +491,7 @@ server {
 				{{ $logins := split (trim $vhost_logins) "\n" }}
 				{{ range $login := $logins }}
 					{{ $login := (split $login ":") }}
-					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) }}
+					{{ $r := setHTPasswd $htpasswd (index $login 0) (index $login 1) $auth_algo }}
 				{{ end }}
 			{{ end }}
 		{{ end }}
