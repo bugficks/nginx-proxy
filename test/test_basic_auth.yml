@@ -1,0 +1,15 @@
+web1:
+  image: web
+  expose:
+    - "81"
+  environment:
+    WEB_PORTS: 81
+    VIRTUAL_HOST: web1.nginx-proxy.tld
+    HTTP_BASIC_AUTH: user:password
+
+
+sut:
+  image: bugficks/nginx-proxy:test
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock:ro
+    - ./lib/ssl/dhparam.pem:/etc/nginx/dhparam/dhparam.pem:ro
