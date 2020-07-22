@@ -43,6 +43,25 @@ map {{ $geoip_country_code_default }} $geoip_country_code_ {
 
 {{ $external_http_port := coalesce $.Env.HTTP_PORT "80" }}
 {{ $external_https_port := coalesce $.Env.HTTPS_PORT "443" }}
+{{ $default_http_ver := (or $.Env.HTTP_VER "2") }}
+
+{{ define "listen" }}
+	{{ $listen := printf "%s" .port }}
+	{{ if eq .ssl true }}
+		{{ $listen = printf "%s ssl" $listen }}
+		{{ if not (or (eq .http_ver "1") (eq .http_ver "")) }}
+			{{ $listen = printf "%s http%s" $listen .http_ver }}
+		{{ end }}
+	{{ end }}
+	{{ if index $ "default_server" }}
+		{{ $listen = printf "%s %s" $listen .default_server }}
+	{{ end }}
+
+	listen {{ $listen }};
+	{{ if eq .enable_ipv6 true }}
+		{{ $listen = printf "[::}:%s" }}
+	{{ end }}
+{{ end }}
 
 {{ define "upstream" }}
 	{{ if .Address }}
@@ -223,10 +242,7 @@ proxy_set_header Proxy "";
 {{ $enable_ipv6 := eq (or ($.Env.ENABLE_IPV6) "") "true" }}
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
-	listen {{ $external_http_port }};
-	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_http_port }};
-	{{ end }}
+	{{ template "listen" (dict "port" $external_http_port "ssl" false "http_ver" $default_http_ver "enable_ipv6" $enable_ipv6 ) }}
 	{{ $access_log }}
 	return 503;
 }
@@ -234,10 +250,7 @@ server {
 {{ if (and (exists "/etc/nginx/certs/default.crt") (exists "/etc/nginx/certs/default.key")) }}
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
-	listen {{ $external_https_port }} ssl http2;
-	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2;
-	{{ end }}
+	{{ template "listen" (dict "port" $external_https_port "ssl" true "http_ver" $default_http_ver "enable_ipv6" $enable_ipv6 ) }}
 	{{ $access_log }}
 	return 503;
 
@@ -294,6 +307,8 @@ include /etc/nginx/vhost.d/default_upstream;
 {{ $default_host := or ($.Env.DEFAULT_HOST) "" }}
 {{ $default_server := index (dict $host "" $default_host "default_server") $host }}
 
+{{ $vhost_http_ver := or (first (groupByKeys $containers "Env.HTTP_VER")) $default_http_ver }}
+
 {{/* Get the VIRTUAL_PROTO defined by containers w/ the same vhost, falling back to "http" */}}
 {{ $proto := trim (or (first (groupByKeys $containers "Env.VIRTUAL_PROTO")) "http") }}
 
@@ -337,10 +352,7 @@ include /etc/nginx/vhost.d/default_upstream;
 {{ if eq $https_method "redirect" }}
 server {
 	server_name {{ $host }};
-	listen {{ $external_http_port }} {{ $default_server }};
-	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_http_port }} {{ $default_server }};
-	{{ end }}
+	{{ template "listen" (dict "port" $external_http_port "ssl" false "http_ver" $vhost_http_ver "enable_ipv6" $enable_ipv6 "default_server" $default_server ) }}
 	{{ $access_log }}
 
 	{{/* https://github.com/nginx-proxy/nginx-proxy/pull/1326 */}}
@@ -367,10 +379,7 @@ server {
 
 server {
 	server_name {{ $host }};
-	listen {{ $external_https_port }} ssl http2 {{ $default_server }};
-	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2 {{ $default_server }};
-	{{ end }}
+	{{ template "listen" (dict "port" $external_https_port "ssl" true "http_ver" $vhost_http_ver "enable_ipv6" $enable_ipv6 "default_server" $default_server ) }}
 	{{ $access_log }}
 
 	{{/* https://github.com/nginx-proxy/nginx-proxy/pull/1326 */}}
@@ -455,10 +464,7 @@ server {
 
 server {
 	server_name {{ $host }};
-	listen {{ $external_http_port }} {{ $default_server }};
-	{{ if $enable_ipv6 }}
-	listen [::]:80 {{ $default_server }};
-	{{ end }}
+	{{ template "listen" (dict "port" $external_http_port "ssl" false "http_ver" $vhost_http_ver "enable_ipv6" $enable_ipv6 "default_server" $default_server ) }}
 	{{ $access_log }}
 
 	{{ if eq $network_tag "internal" }}
@@ -510,10 +516,8 @@ server {
 {{ if (and (not $is_https) (exists "/etc/nginx/certs/default.crt") (exists "/etc/nginx/certs/default.key")) }}
 server {
 	server_name {{ $host }};
-	listen {{ $external_https_port }} ssl http2 {{ $default_server }};
-	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2 {{ $default_server }};
-	{{ end }}
+
+	{{ template "listen" (dict "port" $external_https_port "ssl" true "http_ver" $vhost_http_ver "enable_ipv6" $enable_ipv6 "default_server" $default_server ) }}
 	{{ $access_log }}
 	return 500;
 
