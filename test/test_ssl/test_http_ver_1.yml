@@ -1,0 +1,17 @@
+web1:
+  image: web
+  expose:
+    - "81"
+  environment:
+    WEB_PORTS: "81"
+    VIRTUAL_HOST: "web1.nginx-proxy.tld"
+
+sut:
+  image: bugficks/nginx-proxy:test
+  container_name: nginxproxy
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock:ro
+    - ../lib/ssl/dhparam.pem:/etc/nginx/dhparam/dhparam.pem:ro
+    - ./certs:/etc/nginx/certs:ro
+  environment:
+    HTTP_VER: 1
