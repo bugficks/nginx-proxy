@@ -42,11 +42,11 @@ def require_openssl(required_version):
     """
 
     def versiontuple(v):
-        clean_v = re.sub("[^\d\.]", "", v)
+        clean_v = re.sub(r"[^\d\.]", "", v)
         return tuple(map(int, (clean_v.split("."))))
 
     try:
-        command_output = subprocess.check_output(["openssl", "version"])
+        command_output = subprocess.check_output(["openssl", "version"], encoding='utf-8')
     except OSError:
         return pytest.mark.skip("openssl command is not available in test environment")
     else:
@@ -68,11 +68,11 @@ def test_dhparam_is_not_generated_if_present(docker_compose):
     sut_container = docker_client.containers.get("nginxproxy")
     assert sut_container.status == "running"
 
-    assert_log_contains("Custom dhparam.pem file found, generation skipped")
+    assert_log_contains(b"Custom dhparam.pem file found, generation skipped")
 
     # Make sure the dhparam in use is not the default, pre-generated one
-    default_checksum = sut_container.exec_run("md5sum /app/dhparam.pem.default").split()
-    current_checksum = sut_container.exec_run("md5sum /etc/nginx/dhparam/dhparam.pem").split()
+    exit_code, default_checksum = sut_container.exec_run("md5sum /app/dhparam.pem.default")
+    exit_code, current_checksum = sut_container.exec_run("md5sum /etc/nginx/dhparam/dhparam.pem")
     assert default_checksum[0] != current_checksum[0]
 
 
@@ -90,4 +90,4 @@ def test_web5_dhparam_is_used(docker_compose):
     host = "%s:443" % sut_container.attrs["NetworkSettings"]["IPAddress"]
     r = subprocess.check_output(
         "echo '' | openssl s_client -connect %s -cipher 'EDH' | grep 'Server Temp Key'" % host, shell=True)
-    assert "Server Temp Key: X25519, 253 bits\n" == r
+    assert b"Server Temp Key: X25519, 253 bits\n" == r

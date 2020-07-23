@@ -35,10 +35,10 @@ def test_dhparam_is_generated_if_missing(docker_compose):
     sut_container = docker_client.containers.get("nginxproxy")
     assert sut_container.status == "running"
 
-    assert_log_contains("Generating DSA parameters")
-    assert_log_contains("dhparam generation complete, reloading nginx")
+    assert_log_contains(b"Generating DSA parameters")
+    assert_log_contains(b"dhparam generation complete, reloading nginx")
 
     # Make sure the dhparam in use is not the default, pre-generated one
-    default_checksum = sut_container.exec_run("md5sum /app/dhparam.pem.default").split()
-    generated_checksum = sut_container.exec_run("md5sum /etc/nginx/dhparam/dhparam.pem").split()
+    exit_code, default_checksum = sut_container.exec_run("md5sum /app/dhparam.pem.default")
+    exit_code, generated_checksum = sut_container.exec_run("md5sum /etc/nginx/dhparam/dhparam.pem")
     assert default_checksum[0] != generated_checksum[0]

@@ -7,6 +7,7 @@ import socket
 import subprocess
 import time
 import re
+import io
 
 import backoff
 import docker
@@ -14,6 +15,12 @@ import pytest
 import requests
 from _pytest._code.code import ReprExceptionInfo
 from requests.packages.urllib3.util.connection import HAS_IPV6
+
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except ImportError:
+    pass
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('backoff').setLevel(logging.INFO)
@@ -23,10 +30,11 @@ logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.W
 CA_ROOT_CERTIFICATE = os.path.join(os.path.dirname(__file__), 'certs/ca-root.crt')
 I_AM_RUNNING_INSIDE_A_DOCKER_CONTAINER = os.path.isfile("/.dockerenv")
 FORCE_CONTAINER_IPV6 = False  # ugly global state to consider containers' IPv6 address instead of IPv4
+# nfi why but docker sdk >= 2.5.0 seems to break everything.
+# this commit: https://github.com/docker/docker-py/commit/7d559a957c5908a3cc2b7bee3336869b33d87107
+DEFAULT_DOCKER_API_VERSION = '1.26'
 
-
-docker_client = docker.from_env()
-
+docker_client = docker.from_env(version=DEFAULT_DOCKER_API_VERSION)
 
 ###############################################################################
 #
@@ -142,7 +150,7 @@ def container_ip(container):
             return net_info["bridge"]["IPAddress"]
 
         # not default bridge network, fallback on first network defined
-        network_name = net_info.keys()[0]
+        network_name = list(net_info.keys())[0]
         return net_info[network_name]["IPAddress"]
 
 
@@ -155,7 +163,7 @@ def container_ipv6(container):
         return net_info["bridge"]["GlobalIPv6Address"]
 
     # not default bridge network, fallback on first network defined
-    network_name = net_info.keys()[0]
+    network_name = list(net_info.keys())[0]
     return net_info[network_name]["GlobalIPv6Address"]
 
 
@@ -247,15 +255,17 @@ def remove_all_containers():
         logging.info("removing container %s" % container.name)
         container.remove(v=True, force=True)
 
-
 def get_nginx_conf_from_container(container):
     """
     return the nginx /etc/nginx/conf.d/default.conf file content from a container
     """
     import tarfile
-    from cStringIO import StringIO
     strm, stat = container.get_archive('/etc/nginx/conf.d/default.conf')
-    with tarfile.open(fileobj=StringIO(strm.read())) as tf:
+    tmpfile = io.BytesIO()
+    for d in strm:
+        tmpfile.write(d)
+    tmpfile.seek(0)
+    with tarfile.open(fileobj=tmpfile,mode='r:') as tf:
         conffile = tf.extractfile('default.conf')
         return conffile.read()
 
@@ -264,7 +274,7 @@ def docker_compose_up(compose_file='docker-compose.yml'):
     logging.info('docker-compose -f %s up -d' % compose_file)
     try:
         subprocess.check_output(shlex.split('docker-compose -f %s up -d' % compose_file), stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         pytest.fail("Error while runninng 'docker-compose -f %s up -d':\n%s" % (compose_file, e.output), pytrace=False)
 
 
@@ -272,7 +282,7 @@ def docker_compose_down(compose_file='docker-compose.yml'):
     logging.info('docker-compose -f %s down' % compose_file)
     try:
         subprocess.check_output(shlex.split('docker-compose -f %s down' % compose_file), stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         pytest.fail("Error while runninng 'docker-compose -f %s down':\n%s" % (compose_file, e.output), pytrace=False)
 
 
@@ -286,7 +296,7 @@ def wait_for_nginxproxy_to_be_ready():
         return
     container = containers[0]
     for line in container.logs(stream=True):
-        if "Watching docker events" in line:
+        if b"Watching docker events" in line:
             logging.debug("nginx-proxy ready")
             break
 
@@ -469,5 +479,5 @@ try:
 except docker.errors.ImageNotFound:
     pytest.exit("The docker image 'bugficks/nginx-proxy:test' is missing")
 
-if docker.__version__ != "2.1.0":
-    pytest.exit("This test suite is meant to work with the python docker module v2.1.0")
+if docker.__version__ != "4.2.2":
+    pytest.exit("This test suite is meant to work with the python docker module v4.2.2. Found: v%s" % docker.__version__)

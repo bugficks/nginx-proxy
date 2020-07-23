@@ -1,7 +1,6 @@
 import pytest
-from backports.ssl_match_hostname import CertificateError
+from ssl import CertificateError
 from requests.exceptions import SSLError
-
 
 @pytest.mark.parametrize("subdomain,should_redirect_to_https", [
     (1, True),
