@@ -29,6 +29,7 @@
 	{{ $geoip_country_code_default = "$http_cf_ipcountry" }}
 {{ end }}
 
+{{ if not (eq $geoip_country_code_default "XX") }}
 map {{ $geoip_country_code_default }} $geoip_country_code_ {
 	default {{ $geoip_country_code_default }};
 {{ if $geoip2 }}
@@ -37,7 +38,7 @@ map {{ $geoip_country_code_default }} $geoip_country_code_ {
 	'' XX;
 {{ end }}
 }
-
+{{ end }}
 
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
