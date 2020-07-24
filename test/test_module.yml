@@ -1,0 +1,8 @@
+sut:
+  image: bugficks/nginx-proxy:test
+  container_name: nginxproxy
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock:ro
+
+  environment:
+    NGINX_MOD_ENABLE: .*http.*
