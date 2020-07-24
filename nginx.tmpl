@@ -59,7 +59,7 @@ map {{ $geoip_country_code_default }} $geoip_country_code_ {
 
 	listen {{ $listen }};
 	{{ if eq .enable_ipv6 true }}
-		{{ $listen = printf "[::}:%s" }}
+	listen [::]:{{ $listen }};
 	{{ end }}
 {{ end }}
 
