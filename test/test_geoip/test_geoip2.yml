@@ -1,0 +1,24 @@
+web1:
+  image: web
+  expose:
+    - "81"
+  environment:
+    WEB_PORTS: "81"
+    VIRTUAL_HOST: "web1.nginx-proxy.tld"
+
+sut:
+  image: bugficks/nginx-proxy:test
+  container_name: nginxproxy
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock:ro
+    - ../lib/ssl/dhparam.pem:/etc/nginx/dhparam/dhparam.pem:ro
+  environment:
+    NGINX_MOD_ENABLE: ngx_http_geoip2_module
+
+    #CF_REAL_IP_ENABLE: 1
+    GEOIP2_ENABLE: GeoLite2-City
+    CF_COUNTRY_ENABLE: 1
+    CF_GEOIP2_PROXY_ENABLE: 1
+    # create test/.env with your credentials
+    GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID}
+    GEOIPUPDATE_LICENSE_KEY: ${GEOIPUPDATE_LICENSE_KEY}
